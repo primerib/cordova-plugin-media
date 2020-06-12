@@ -1,53 +1,38 @@
 {
-  "name": "cordova-plugin-media",
-  "version": "5.0.3",
-  "description": "Cordova Media Plugin",
-  "types": "./types/index.d.ts",
+  "name": "cordova-plugin-music-controls",
+  "version": "2.1.6",
+  "description": "Music controls for Cordova apps",
   "cordova": {
-    "id": "cordova-plugin-media",
-    "platforms": [
-      "android",
-      "browser",
-      "ios",
-      "windows"
-    ]
+    "id": "cordova-plugin-music-controls",
+    "platforms": ["android", "windows", "ios"]
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/apache/cordova-plugin-media"
-  },
-  "bugs": {
-    "url": "https://issues.apache.org/jira/browse/CB"
+    "url": "git+https://github.com/homerours/cordova-music-controls-plugin.git"
   },
   "keywords": [
     "cordova",
+    "music",
+    "controller",
+    "controls",
     "media",
+    "plugin",
+    "notification",
     "ecosystem:cordova",
     "cordova-android",
-    "cordova-browser",
-    "cordova-ios",
     "cordova-windows"
   ],
-  "scripts": {
-    "test": "npm run jshint",
-    "jshint": "jshint www && jshint src && jshint tests"
-  },
-  "author": "Apache Software Foundation",
-  "license": "Apache-2.0",
-  "engines": {
-    "cordovaDependencies": {
-      "3.0.0": {
-        "cordova-android": ">=6.1.0"
-      },
-      "4.0.0": {
-        "cordova-android": ">=6.3.0"
-      },
-      "6.0.0": {
-        "cordova": ">100"
-      }
+  "engines": [
+    {
+      "name": "cordova",
+      "version": ">=3.4.0"
     }
+  ],
+  "author": "homerours",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/homerours/cordova-music-controls-plugin/issues"
   },
-  "devDependencies": {
-    "jshint": "^2.6.0"
-  }
+  "homepage":
+    "https://github.com/homerours/cordova-music-controls-plugin#readme"
 }
