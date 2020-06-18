@@ -93,6 +93,11 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     private boolean prepareOnly = true;     // playback after file prepare flag
     private int seekOnPrepared = 0;     // seek to this location once media is prepared
 
+    private MediaPlayer loopPlayer = null;      // Loop Audio player object
+    private float volume = 1;  //Have to save the volume so we can set the loop volume to the same value
+    private String file; //for passing around on init for loop
+
+
     /**
      * Constructor.
      *
@@ -130,11 +135,14 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
             this.player = null;
         }
         if (this.recorder != null) {
-            if (this.state != STATE.MEDIA_STOPPED) {
-                this.stopRecording(true);
-            }
+            this.stopRecording(true);
             this.recorder.release();
             this.recorder = null;
+        }
+
+        if (this.loopPlayer != null) {
+            this.loopPlayer.release();
+            this.loopPlayer = null;
         }
     }
 
@@ -199,44 +207,8 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         if (size == 1) {
             String logMsg = "renaming " + this.tempFile + " to " + file;
             LOG.d(LOG_TAG, logMsg);
-
             File f = new File(this.tempFile);
-            if (!f.renameTo(new File(file))) {
-
-                FileOutputStream outputStream = null;
-                File outputFile = null;
-                try {
-                    outputFile = new File(file);
-                    outputStream = new FileOutputStream(outputFile);
-                    FileInputStream inputStream = null;
-                    File inputFile = null;
-                    try {
-                        inputFile = new File(this.tempFile);
-                        LOG.d(LOG_TAG,  "INPUT FILE LENGTH: " + String.valueOf(inputFile.length()) );
-                        inputStream = new FileInputStream(inputFile);
-                        copy(inputStream, outputStream, false);
-                    } catch (Exception e) {
-                        LOG.e(LOG_TAG, e.getLocalizedMessage(), e);
-                   } finally {
-                        if (inputStream != null) try {
-                            inputStream.close();
-                            inputFile.delete();
-                            inputFile = null;
-                        } catch (Exception e) {
-                            LOG.e(LOG_TAG, e.getLocalizedMessage(), e);
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    if (outputStream != null) try {
-                        outputStream.close();
-                        LOG.d(LOG_TAG, "OUTPUT FILE LENGTH: " + String.valueOf(outputFile.length()) );
-                    } catch (Exception e) {
-                        LOG.e(LOG_TAG, e.getLocalizedMessage(), e);
-                    }
-                }
-            }
+            if (!f.renameTo(new File(file))) LOG.e(LOG_TAG, "FAILED " + logMsg);
         }
         // more than one file so the user must have pause recording. We'll need to concat files.
         else {
@@ -573,6 +545,11 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     public void setVolume(float volume) {
         if (this.player != null) {
             this.player.setVolume(volume, volume);
+            this.volume = volume;
+     
+          if (this.loopPlayer != null) {
+              this.loopPlayer.setVolume(volume, volume);
+          }
         } else {
             LOG.d(LOG_TAG, "AudioPlayer Error: Cannot set volume until the audio file is initialized.");
             sendErrorStatus(MEDIA_ERR_NONE_ACTIVE);
@@ -667,15 +644,38 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         return false;
     }
 
+
+
+  /**
+     * Determine if playback file should be background LOOPED.
+     * It is streaming if file name starts with "http://"
+     *
+     * @param file              The file name
+     * @return                  T=streaming, F=local
+     */
+    public boolean isLoop(String file) {
+        if (file.contains("bgloop")) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+
+
     /**
      * load audio file
+     * ERICH Modified - Loop for bgloop in the filename and create a looping player if it's there
      * @throws IOException
      * @throws IllegalStateException
      * @throws SecurityException
      * @throws IllegalArgumentException
      */
     private void loadAudioFile(String file) throws IllegalArgumentException, SecurityException, IllegalStateException, IOException {
-        if (this.isStreaming(file)) {
+ 
+      LOG.e(LOG_TAG, "TMP load filee", file);//tmp
+       if (this.isStreaming(file)) {
             this.player.setDataSource(file);
             this.player.setAudioStreamType(AudioManager.STREAM_MUSIC);
             //if it's a streaming file, play mode is implied
@@ -702,13 +702,60 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
                 }
             }
                 this.setState(STATE.MEDIA_STARTING);
+
                 this.player.setOnPreparedListener(this);
-                this.player.prepare();
+                
+                
 
                 // Get duration
                 this.duration = getDurationInSeconds();
+                LOG.e(LOG_TAG, "IS LOOPP?", file);//tmp
+                if(this.isLoop(file)) {
+
+                  this.file = file;
+                  createNextLoopPlayer();
+                  //this.player.setLooping(true)
+                } 
+
+                this.player.prepare();
             }
     }
+
+
+    //Erich -- creates another player and puts it in the seemless playlist
+    private void createNextLoopPlayer() {
+        this.loopPlayer = new MediaPlayer();
+
+        
+        this.loopPlayer.setDataSource(this.file);
+        this.loopPlayer.setVolume(this.volume, this.volume);
+    
+        this.loopPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+            @Override
+            public void onPrepared(MediaPlayer mp) {
+                this.loopPlayer.seekTo(0);
+                this.player.setNextMediaPlayer(this.loopPlayer);
+                this.player.setOnCompletionListener(onCompletionListener);
+            }
+        });
+        this.loopPlayer.prepare();
+        
+    }
+
+    // Erich - looper 
+    private final MediaPlayer.OnCompletionListener onCompletionListener =
+            new MediaPlayer.OnCompletionListener() {
+                @Override
+                public void onCompletion(MediaPlayer mediaPlayer) {
+                    this.player = this.loopPlayer;
+                    createNextLoopPlayer();
+                    mediaPlayer.release();
+                }
+            };
+
+
+
+
 
     private void sendErrorStatus(int errorCode) {
         sendStatusChange(MEDIA_ERROR, errorCode, null);
